@@ -1,0 +1,13 @@
+# Ignore node modules in both client and server
+client/node_modules/
+server/node_modules/
+
+# Ignore environment files
+server/.env
+
+# Ignore personal notes
+note.txt
+
+# Optional: build/dist folders
+client/build/
+server/dist/
