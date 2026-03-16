@@ -34,7 +34,7 @@ export default function Register(){
         <div className="register-container">
             <form action="" onSubmit={registerUser}>
                 <input type="text" placeholder="Name" value={name} onChange={(e)=>{setName(e.target.value)}}></input>
-                <input type="text" placeholder="Emaill" value={email} onChange={(e)=>{setEmail(e.target.value)}}></input>
+                <input type="email" placeholder="Email" value={email} onChange={(e)=>{setEmail(e.target.value)}}></input>
                 <input type="password" placeholder="Password" value={password} onChange={(e)=>{setPass(e.target.value)}}></input>
                 <button type="submit">Register</button>
             </form>

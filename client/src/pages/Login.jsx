@@ -1,5 +1,6 @@
 import React,{ useState } from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../api/axios";
 
 export default function Login(){
 
@@ -12,19 +13,10 @@ export default function Login(){
         e.preventDefault();
 
         try{
-            const response = await fetch("http://localhost:5000/api/login",{
-                method:"POST",
-                headers:{"Content-type":"application/json"},
-                body:JSON.stringify({email,password})
-            });
-
-            if(response.ok){
-                navigate("/register");
-            }
-            else{
-                const data = await response.json();
-                throw new Error(data.message);
-            }
+            const identifier = email;
+            const res = await api.post("/api/login",{identifier,password});
+            localStorage.setItem("accessToken",res.data.accessToken);
+            navigate("/ai");
         }
         catch(err){
             console.log(err);
