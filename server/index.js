@@ -1,11 +1,13 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import User from "./model/User.js"
 import bcrypt from "bcrypt"
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
+import nodemailer from "nodemailer";
+import User from "./model/User.js"
+import Otp from "./model/Otp.js";
 
 dotenv.config();
 
@@ -24,7 +26,20 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
-app.post("/api/register",async (req,res)=>{
+const otpStore = {};
+
+
+const transporter = nodemailer.createTransport({
+    service:"gmail",
+    auth:{
+        user:process.env.EMAIL,
+        pass:process.env.EMAIL_PASS
+    }
+})
+
+
+//sending an otp
+app.post("/api/send-otp", async (req,res)=>{
     const {name,email,password} = req.body;
 
     try{
@@ -33,20 +48,95 @@ app.post("/api/register",async (req,res)=>{
         if(user){
             return res.status(409).json({message:"User already exist"});
         }
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@(gmail\.com|outlook\.com)$/;
 
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({ message: "Invalid email domain" });
+        }
+        
+        const otp = Math.floor(100000 + Math.random()*900000);
         const hashPassword = await bcrypt.hash(password,10);
+        //store in map
 
-        const newUser = await User.create({
-            name,email,password:hashPassword
-        });
+        await Otp.deleteOne({email});
 
-        res.status(201).json({success:true,message:"User registered succesfully"});
+        await Otp.create({
+            name,email,otp,password:hashPassword,expiry:Date.now() + 5*60*1000
+        })
+
+        await transporter.sendMail({
+            from:process.env.EMAIL,
+            to:email,
+            subject:"Your OTP Code",
+            text:`Your OTP IS ${otp}`
+        })
+        
+        res.status(200).json({message:"OTP sent"});
 
     }
     catch(err){
         res.status(500).json({message:err.message});
     }
 })
+
+app.post("/api/verify-email", async(req,res)=>{
+    const {email,otp} = req.body;
+
+    try{
+        const record = await Otp.findOne({email});
+
+        if(!record){
+            return res.json({message:"Wrong OTP"});
+        }
+        if(record.expiry<Date.now()){
+            return res.status(400).json({message:"OTP expired"});
+        }
+        if(record.otp!=otp){
+            return res.status(500).json({message:"Wrong OTP"});
+        }
+
+
+        const user = await User.create({
+            name:record.name,email:record.email,password:record.password
+        });
+        
+        await Otp.deleteOne({email});
+
+        res.status(201).json({message:"User succesfully registered"});
+    }
+    catch(err){
+        res.status(500).json({message:err.message});
+    }
+
+});
+
+
+app.post("/api/resend-otp", async(req,res)=>{
+    const {email} = req.body;
+
+    try{
+
+        const newOTP = Math.floor(100000 + Math.random()*90000);
+
+        await Otp.updateOne(
+            {email},
+            {otp:newOTP, expiry:Date.now() + 5*60*1000}
+        );
+
+        await transporter.sendMail({
+            from:process.env.EMAIL,
+            to:email,
+            subject:"YOUR OTP CODE",
+            text:`YOUR OTP : ${newOTP}`
+        })
+
+        res.status(200).json({message:"OTP SENT"});
+    }
+    catch(err){
+        res.json(500).json({message:err.message});
+    }
+})
+
 
 app.post("/api/login",async (req,res)=>{
     const {identifier,password} = req.body;
